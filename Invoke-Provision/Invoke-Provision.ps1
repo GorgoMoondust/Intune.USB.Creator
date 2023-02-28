@@ -10,6 +10,7 @@ class USBImage {
     [System.IO.DirectoryInfo]   $recovery = $null
     [string]                    $reRoot = $null
     [System.IO.DirectoryInfo]   $driverPath = $null
+    [System.IO.DirectoryInfo]   $driverPathPE = $null
     [System.IO.DirectoryInfo]   $cuPath = $null
     [System.IO.DirectoryInfo]   $ssuPath = $null
 
@@ -21,6 +22,7 @@ class USBImage {
         $this.cuPath = "$($this.installPath)\CU"
         $this.ssuPath = "$($this.installPath)\SSU"
         $this.driverPath = "$($this.installRoot)Drivers"
+        $this.driverPathPE = "$($this.installRoot)DriversPE"
     }
     setScratch ([System.IO.DirectoryInfo]$scratch) {
         $this.scratch = $scratch
@@ -355,12 +357,9 @@ function Show-WarningShots {
     )
     Write-Host "================ $title ================" -ForegroundColor Yellow
 
-    Write-Host "1: Exit" -ForegroundColor Green
-    Write-Host "2: Wipe USB" -ForegroundColor Green
-    Write-Host "3: Install Windows 10 and KEEP USB " -ForegroundColor Green -NoNewline
-    Write-Host "## !!! Destructive !!! ##" -ForegroundColor Red
-    Write-Host "4: Install Windows 10 and DELETE USB " -ForegroundColor Green -NoNewline
-    Write-Host "## !!! Destructive !!! ##" -ForegroundColor Red
+
+    Write-Host "Install Windows 10" -ForegroundColor Green -NoNewline
+    
 
     $userInput = Read-Host "Please make a selection.."
     return $userInput
@@ -371,7 +370,11 @@ function Show-FinalWarningShots {
         [string]$title = 'WARNING!!!'
     )
     Write-Host "================ $title ================" -ForegroundColor RED
-
+	Write-Host "================ $title ================" -ForegroundColor RED
+	Write-Host "================ $title ================" -ForegroundColor RED
+	Write-Host "!!!==All data on the harddrives will destroyed==!!!" -ForegroundColor RED
+	Write-Host "!!!==Alle Daten auf den Festplatten werden zerstört==!!!" -ForegroundColor RED
+	Write-Host "!!!==Toutes les données sur les disques durs seront détruites==!!!" -ForegroundColor RED
     Write-Host "This option will cause irreversible changes to your device - are you sure you want to continue? (Y/N)`n" -ForegroundColor Red
 
     $userInput = Read-Host "Please make a selection (Y/N)"
@@ -399,7 +402,7 @@ try {
     #region Bootstrap drivers
     $deviceModel = Get-CimInstance -ClassName Win32_ComputerSystem | Select-Object -ExpandProperty Model
     Write-Host "`nDevice Model: " -ForegroundColor Yellow -NoNewline
-    $drivers = Get-ChildItem $usb.driverPath -Filter *.inf -Recurse
+    $drivers = Get-ChildItem $usb.driverPathPE -Filter *.inf -Recurse
     if ($drivers) {
         Write-Host $deviceModel -ForegroundColor Cyan
         Write-Host "Bootstrapping found drivers into WinPE Environment.." -ForegroundColor Yellow
@@ -416,7 +419,8 @@ try {
     Set-PowerPolicy -powerPlan HighPerformance
     #endregion
     #region Warning shots..
-    $userChoice = $null
+	#$userChoice = $null
+    $userChoice = 3
     while ($userChoice -notin 1, 2, 3, 4) {
         Clear-Host
         $welcomeScreen = "IF9fICBfXyAgICBfXyAgX19fX19fICBfX19fX18gIF9fX19fXwovXCBcL1wgIi0uLyAgXC9cICBfXyBcL1wgIF9fX1wvXCAgX19fXApcIFwgXCBcIFwtLi9cIFwgXCAgX18gXCBcIFxfXyBcIFwgIF9fXAogXCBcX1wgXF9cIFwgXF9cIFxfXCBcX1wgXF9fX19fXCBcX19fX19cCiAgXC9fL1wvXy8gIFwvXy9cL18vXC9fL1wvX19fX18vXC9fX19fXy8KIF9fX19fICAgX19fX19fICBfX19fX18gIF9fICAgICAgX19fX19fICBfXyAgX18KL1wgIF9fLS4vXCAgX19fXC9cICA9PSBcL1wgXCAgICAvXCAgX18gXC9cIFxfXCBcClwgXCBcL1wgXCBcICBfX1xcIFwgIF8tL1wgXCBcX19fXCBcIFwvXCBcIFxfX19fIFwKIFwgXF9fX18tXCBcX19fX19cIFxfXCAgIFwgXF9fX19fXCBcX19fX19cL1xfX19fX1wKICBcL19fX18vIFwvX19fX18vXC9fLyAgICBcL19fX19fL1wvX19fX18vXC9fX19fXy8KICAgICAgIF9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCiAgICAgICBXaW5kb3dzIDEwIERldmljZSBQcm92aXNpb25pbmcgVG9vbAogICAgICAgKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKio="
@@ -512,13 +516,13 @@ try {
     Invoke-Cmdline -application "$($usb.scRoot)Windows\System32\bcdboot" -argumentList "$($usb.scRoot)Windows /s s: /f all"
     #endregion
     #region Copying over unattended.xml
-    Write-Host "`nLooking for unattented.xml.." -ForegroundColor Yellow
-    if (Test-Path "$($usb.winPESource)scripts\unattended.xml" -ErrorAction SilentlyContinue) {
+    Write-Host "`nLooking for unattend.xml.." -ForegroundColor Yellow
+    if (Test-Path "$($usb.winPESource)scripts\unattend.xml" -ErrorAction SilentlyContinue) {
         Write-Host "Found it! Copying over to scratch drive.." -ForegroundColor Green
         if(-not (Test-Path "$($usb.scRoot)Windows\Panther" -ErrorAction SilentlyContinue)){
             New-Item -Path "$($usb.scRoot)Windows\Panther" -ItemType Directory -Force | Out-Null
          }
-        Copy-Item -Path "$($usb.winPESource)\scripts\unattended.xml" -Destination "$($usb.scRoot)Windows\Panther\unattended.xml" | Out-Null
+        Copy-Item -Path "$($usb.winPESource)\scripts\unattend.xml" -Destination "$($usb.scRoot)Windows\Panther\unattend.xml" | Out-Null
     }
     else {
         Write-Host "Nothing found. Moving on.." -ForegroundColor Red
@@ -540,7 +544,7 @@ try {
         Add-Driver -driverPath $usb.driverPath -scratchDrive $usb.scRoot
     }
     #endregion
-    $completed = $true
+	$completed = $true
 }
 catch {
     $errorMsg = $_.Exception.Message
